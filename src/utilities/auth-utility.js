@@ -25,7 +25,7 @@ const signIn = async (req, res) => {
     let email = req.body.email;
     let password = req.body.password;
     try {
-      let cognitoClient = new AWS.CognitoIdentityServiceProvider()
+      let cognitoClient = new AWS.CognitoIdentityServiceProvider();
       let signInResponse = await cognitoClient.adminInitiateAuth({
         AuthFlow: 'ADMIN_NO_SRP_AUTH',
         ClientId: appClientId,
@@ -44,9 +44,9 @@ const signIn = async (req, res) => {
 
 const signUp = async (req, res) => {
     let email = req.body.username;
-    let cognitoClient;
+    let cognitoClient = new AWS.CognitoIdentityServiceProvider();;
     let temporaryHmac = generateTempPassword();
-    let params = {
+    let paramsForCreatingUser = {
       UserPoolId: userPoolId,
       Username: email,
       DesiredDeliveryMediums: ["EMAIL"],
@@ -64,13 +64,20 @@ const signUp = async (req, res) => {
     };
     // admingetuser -> if user exists and state is 'FORCE_CHANGE_PASSWORD' delete the user entry(and verification code will be sent again)
     try {
-        cognitoClient = new AWS.CognitoIdentityServiceProvider();
-        let createUserPromise = cognitoClient.adminCreateUser(params).promise();
+        let userDetails = await getCognitoUserDetails(email, cognitoClient);
+        if(userDetails && userDetails["UserStatus"] === "FORCE_CHANGE_PASSWORD")
+            await deleteCognitoUser(email, cognitoClient);
+    } catch (err) {
+        console.log(err);
+    }
+   
+    try {
+        let createUserPromise = cognitoClient.adminCreateUser(paramsForCreatingUser).promise();
         await createUserPromise;
         return res.status(200).send({ message: "Verification code sent!" });
     } catch (e) {
         console.error("Error from Cognito while creating User, starting rollback...");
-        rollBackSignUp(email, cognitoClient);
+        deleteCognitoUser(email, cognitoClient);
         return res.status(500).send({ errorType: "Internal Server Error", message: e.message || "Error while signing up!"});
     }
 };
@@ -111,12 +118,49 @@ const confirmPassword = async (req, res) => {
     }
 };
 
-const forgotPassword = (req, res) => {
+// https://docs.aws.amazon.com/cognito-user-identity-pools/latest/APIReference/API_ForgotPassword.html
+const forgotPassword = async (req, res) => {
+    let email = req.body.username;
+    let cognitoClient = new AWS.CognitoIdentityServiceProvider();
+    let params = {
+      ClientId: appClientId, /* required */
+      Username: email, /* required */
+    };
+    try {
+      await cognitoClient.forgotPassword(params).promise();
+      return res.status(200).send({ message: "Verification code sent for password reset!" });
+    } catch(err) {
+      console.log(err);
+      return res.status(500).send({ errorType: "PASSWORD_RESET_ERROR", message: err.message || "Error sending verification code for password reset" });
+    }
+};
+
+// https://docs.aws.amazon.com/cognito-user-identity-pools/latest/APIReference/API_ConfirmForgotPassword.html
+const confirmForgotPassword = async (req, res) => {
+    let email = req.body.username;
+    let confirmationCode = req.body.confirmation_code;
+    let password = req.body.password;
+    let cognitoClient = new AWS.CognitoIdentityServiceProvider();
+    let params = {
+      ClientId: appClientId,
+      ConfirmationCode: confirmationCode,
+      Password: password,
+      Username: email
+    };
+    try {
+      await cognitoClient.confirmForgotPassword(params).promise();
+      return res.status(200).send({ message: "Password reset successful!" });
+    } catch(err) {
+      console.log(err);
+      return res.status(500).send({ errorType: "PASSWORD_RESET_ERROR", message: err.message || "Error resetting password!" });
+    }
 
 };
 
 const getProtectedResource = (req, res) => {
-    // verify token here
+    // check if idtoken is expired but refresh token is valid, request a new token using this refresh token and send it in response headers
+    // if refresh token is also expired, send appropriate response indicating -> user has to login again
+    // else check if the token are valid from cognito's end(user might have logged out - invalidating the tokens)
     return res.status(200).send({ message: "Access granted!" });
 };
 
@@ -124,15 +168,29 @@ const logOut = (req, res) => {
 
 };
 
+const getCognitoUserDetails = async (email, cognitoClient) => {
+    let paramsForGettingUserDetails = {
+      UserPoolId: userPoolId,
+      Username: email
+    };
+    try {
+        let userDetails = await cognitoClient.adminGetUser(paramsForGettingUserDetails).promise();
+        return userDetails;
+    } catch(err) {
+        throw err;
+    }
+
+};
+
 const generateTempPassword = () => {
     return generatePassword(8, false, /\d/);
 };
 
-const rollBackSignUp = async (emailId, cognitoClient) => {
+const deleteCognitoUser = async (email, cognitoClient) => {
     try {
-        var params = {
+        let params = {
             UserPoolId: userPoolId,
-            Username: emailId
+            Username: email
         };
         let deleteUserPromise = cognitoClient.adminDeleteUser(params).promise();
         await deleteUserPromise;
@@ -146,6 +204,7 @@ module.exports = {
     signUp,
     confirmPassword,
     forgotPassword,
+    confirmForgotPassword,
     getProtectedResource,
     logOut
 }

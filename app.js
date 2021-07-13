@@ -9,5 +9,5 @@ app.use(cors());
 app.use(authRoutes);    
 
 app.listen(process.env.PORT, function () {
-    console.log(`Server is listening on Port: 3000`);
+    console.log(`Server is listening on Port: ${process.env.PORT}`);
 });
