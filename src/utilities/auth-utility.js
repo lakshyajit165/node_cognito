@@ -35,7 +35,7 @@ const signIn = async (req, res) => {
           PASSWORD: password
         }
       }).promise();
-      // console.log(signInResponse);  // can send the tokens to frontend from here(after creating the response object)
+      console.log(signInResponse);  // can send the tokens to frontend from here(after creating the response object)
       return res.status(200).send({ message: "User logged in!" });
     } catch (err) {
       return res.status(500).send({ errorType: "SIGN_IN_ERROR", message: err.message || "Error signing in user!" });
@@ -180,6 +180,23 @@ const getCognitoUserDetails = async (email, cognitoClient) => {
         throw err;
     }
 
+};
+
+const getNewTokensUsingRefreshToken = async (refreshToken) => {
+    try {
+        let cognitoClient = new AWS.CognitoIdentityServiceProvider();
+        let refreshTokenResponse = await cognitoClient.adminInitiateAuth({
+          AuthFlow: 'REFRESH_TOKEN_AUTH',
+          ClientId: appClientId,
+          UserPoolId: userPoolId,
+          AuthParameters: {
+            REFRESH_TOKEN_AUTH: refreshToken
+          }
+        }).promise();
+        return refreshTokenResponse; // can send the tokens to frontend from here(after creating the response object)
+    } catch (err) {
+        throw err;
+    }
 };
 
 const generateTempPassword = () => {
