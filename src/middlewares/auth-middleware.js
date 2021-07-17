@@ -23,26 +23,7 @@ const poolData = {
 };
 const userPool = new AmazonCognitoIdentity.CognitoUserPool(poolData);
 
-// const validateTokens = async (req, res) => {
-//     let idToken = req.headers["id_token"];
-//     let accessToken = req.headers["access_token"];
-//     let refreshToken = req.headers["refresh_token"];
-//     let userDetails;
-//     let cognitoClient = new AWS.CognitoIdentityServiceProvider();
-
-//     if(!idToken || !accessToken || !refreshToken)
-//         return res.status(400).send({ message: "Invalid headers" });
-//     try {
-//         userDetails = await getCognitoUserDetails(getEmailFromIdToken(idToken), cognitoClient);
-//         console.log(userDetails);
-//     } catch (err) {
-//         return res.status(500).send({ message: err.message || "Error while verifying user details" });
-//     }
-      
-
-// };
-
-const jsonWebKeys = [  // from https://cognito-idp.us-west-2.amazonaws.com/<UserPoolId>/.well-known/jwks.json
+const jsonWebKeys = [  // from https://cognito-idp.<REGION>.amazonaws.com/<UserPoolId>/.well-known/jwks.json
     {
         "alg": "RS256",
         "e": "AQAB",
@@ -93,10 +74,10 @@ const validateToken = async (req, res, next) => {
                 }
             } catch (error) {
                 console.log(error);
-                return res.status(500).send({ message: "Error validating tokens. Please sign in again." });
+                return res.status(500).send({ message: error.message || "Error validating tokens. Please sign in again." });
             }
         } else {
-            return res.status(500).send({ message: "Error validating tokens. Please sign in again." });
+            return res.status(500).send({ message: err.message || "Error validating tokens. Please sign in again." });
         }
     }
 }

@@ -173,8 +173,23 @@ const getProtectedResource = (req, res) => {
     return res.status(200).send({ message: "Access granted!" });
 };
 
-const logOut = (req, res) => {
-
+// https://docs.aws.amazon.com/cognito-user-identity-pools/latest/APIReference/API_AdminUserGlobalSignOut.html
+const logOut = async (req, res) => {
+    let idToken = req.headers["id_token"];
+    let email = getEmailFromIdToken(idToken);
+    let cognitoClient = new AWS.CognitoIdentityServiceProvider();
+    if(!email)
+        return res.status(500).send({ message: "Error extracting email from token" });
+    let params = {
+        UserPoolId: userPoolId, /* required */
+        Username: email /* required */
+    };
+    try {
+        await cognitoClient.adminUserGlobalSignOut(params).promise();
+        return res.status(200).send({ message: "User logged out!" });
+    } catch(err) {
+        return res.status(500).send({ message: err.message || "Error logging out user. Please try again." });
+    }
 };
 
 const getCognitoUserDetails = async (email, cognitoClient) => {
