@@ -35,7 +35,11 @@ const signIn = async (req, res) => {
           PASSWORD: password
         }
       }).promise();
-      console.log(signInResponse);  // can send the tokens to frontend from here(after creating the response object)
+      // console.log(signInResponse);  // can send the tokens to frontend from here(after creating the response object)
+      // set idtoken, accesstoken and refreshtoken in response headers
+      res.setHeader("access_token", signInResponse["AuthenticationResult"]["AccessToken"]);
+      res.setHeader("id_token", signInResponse["AuthenticationResult"]["IdToken"]);
+      res.setHeader("refresh_token", signInResponse["AuthenticationResult"]["RefreshToken"]);
       return res.status(200).send({ message: "User logged in!" });
     } catch (err) {
       return res.status(500).send({ errorType: "SIGN_IN_ERROR", message: err.message || "Error signing in user!" });
@@ -43,8 +47,8 @@ const signIn = async (req, res) => {
 };
 
 const signUp = async (req, res) => {
-    let email = req.body.username;
-    let cognitoClient = new AWS.CognitoIdentityServiceProvider();;
+    let email = req.body.email;
+    let cognitoClient = new AWS.CognitoIdentityServiceProvider();
     let temporaryHmac = generateTempPassword();
     let paramsForCreatingUser = {
       UserPoolId: userPoolId,
@@ -68,7 +72,10 @@ const signUp = async (req, res) => {
         if(userDetails && userDetails["UserStatus"] === "FORCE_CHANGE_PASSWORD")
             await deleteCognitoUser(email, cognitoClient);
     } catch (err) {
-        console.log(err);
+        if(err.code === "UserNotFoundException")
+            console.info("New User signing up!");
+        else
+            console.error(error);
     }
    
     try {
@@ -84,7 +91,7 @@ const signUp = async (req, res) => {
 
 const confirmPassword = async (req, res) => {
     try {
-      let username = req.body.username;
+      let username = req.body.email;
       let password = req.body.password;
       let verificationCode = req.body.verification_code;
       username = username.toLowerCase();
@@ -120,7 +127,7 @@ const confirmPassword = async (req, res) => {
 
 // https://docs.aws.amazon.com/cognito-user-identity-pools/latest/APIReference/API_ForgotPassword.html
 const forgotPassword = async (req, res) => {
-    let email = req.body.username;
+    let email = req.body.email;
     let cognitoClient = new AWS.CognitoIdentityServiceProvider();
     let params = {
       ClientId: appClientId, /* required */
@@ -137,7 +144,7 @@ const forgotPassword = async (req, res) => {
 
 // https://docs.aws.amazon.com/cognito-user-identity-pools/latest/APIReference/API_ConfirmForgotPassword.html
 const confirmForgotPassword = async (req, res) => {
-    let email = req.body.username;
+    let email = req.body.email;
     let confirmationCode = req.body.confirmation_code;
     let password = req.body.password;
     let cognitoClient = new AWS.CognitoIdentityServiceProvider();
@@ -161,6 +168,8 @@ const getProtectedResource = (req, res) => {
     // check if idtoken is expired but refresh token is valid, request a new token using this refresh token and send it in response headers
     // if refresh token is also expired, send appropriate response indicating -> user has to login again
     // else check if the token are valid from cognito's end(user might have logged out - invalidating the tokens)
+    console.log(req.headers["access_token"]);
+    console.log(req.headers["id_token"]);
     return res.status(200).send({ message: "Access granted!" });
 };
 
@@ -190,7 +199,7 @@ const getNewTokensUsingRefreshToken = async (refreshToken) => {
           ClientId: appClientId,
           UserPoolId: userPoolId,
           AuthParameters: {
-            REFRESH_TOKEN_AUTH: refreshToken
+            REFRESH_TOKEN: refreshToken
           }
         }).promise();
         return refreshTokenResponse; // can send the tokens to frontend from here(after creating the response object)
@@ -201,6 +210,14 @@ const getNewTokensUsingRefreshToken = async (refreshToken) => {
 
 const generateTempPassword = () => {
     return generatePassword(8, false, /\d/);
+};
+
+const getEmailFromIdToken = (idToken) => {
+    let base64Payload = idToken.split(".")[1];
+    let idTokenPayload = Buffer.from(base64Payload, "base64");
+    let decodedPayload = JSON.parse(idTokenPayload.toString());
+    let email = decodedPayload && decodedPayload.email;
+    return email;
 };
 
 const deleteCognitoUser = async (email, cognitoClient) => {
@@ -223,5 +240,8 @@ module.exports = {
     forgotPassword,
     confirmForgotPassword,
     getProtectedResource,
+    getCognitoUserDetails,
+    getEmailFromIdToken,
+    getNewTokensUsingRefreshToken,
     logOut
 }
