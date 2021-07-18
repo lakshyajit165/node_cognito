@@ -105,7 +105,6 @@ const confirmPassword = async (req, res) => {
           PASSWORD: verificationCode
         }
       }).promise();
-      console.log(initAuthResponse);
       if (initAuthResponse.ChallengeName === 'NEW_PASSWORD_REQUIRED') {
         await cognitoClient.adminRespondToAuthChallenge({
           ChallengeName: 'NEW_PASSWORD_REQUIRED',
@@ -168,8 +167,6 @@ const getProtectedResource = (req, res) => {
     // check if idtoken is expired but refresh token is valid, request a new token using this refresh token and send it in response headers
     // if refresh token is also expired, send appropriate response indicating -> user has to login again
     // else check if the token are valid from cognito's end(user might have logged out - invalidating the tokens)
-    console.log(req.headers["access_token"]);
-    console.log(req.headers["id_token"]);
     return res.status(200).send({ message: "Access granted!" });
 };
 

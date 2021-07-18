@@ -50,15 +50,13 @@ const validateToken = async (req, res, next) => {
     const jsonWebKey = getJsonWebKeyWithKID(header.kid);
     const pem = jwkToPem(jsonWebKey);
     try {
-        let decodedToken = verifyJsonWebTokenSignature(idToken, jsonWebKey);
-        console.log(decodedToken);
-        next();
+        let email = verifyJsonWebTokenSignature(idToken, jsonWebKey);
+        next(); // user might still be able to get here after logout...since refresh token is revoked but idtoken and accesstoken are still active (can maintain a token blacklist)
     } catch (err) {
         if(err.message === "jwt expired" || err.toString().split(":")[0] === "TokenExpiredError") {
         // try issuing new access and id token with the help of refresh token here and set the new tokens in the request AND response header(client collects the tokens from response header)...if that also throws an error(may be refresh token expired or any other error) send response to login again
             try {
                 let newlyIssuedTokens = await getNewTokensUsingRefreshToken(refreshToken);
-                console.log(newlyIssuedTokens);
                 // set the new tokens in request and response headers and proceed to access the resource
                 if(newlyIssuedTokens 
                     && newlyIssuedTokens["AuthenticationResult"] 
@@ -101,8 +99,8 @@ const getJsonWebKeyWithKID = (kid) => {
 const verifyJsonWebTokenSignature = (token, jsonWebKey) => {
     const pem = jwkToPem(jsonWebKey);
     try {
-        const { decodedToken } = jsonwebtoken.verify(token, pem, {algorithms: ['RS256']});
-        return decodedToken;
+        const { email } = jsonwebtoken.verify(token, pem, {algorithms: ['RS256']});
+        return email;
     } catch(err) {
         throw err;
     }
