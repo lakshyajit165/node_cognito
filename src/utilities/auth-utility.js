@@ -46,6 +46,8 @@ const signIn = async (req, res) => {
     }
 };
 
+// https://docs.aws.amazon.com/cognito-user-identity-pools/latest/APIReference/API_AdminCreateUser.html && 
+// https://docs.aws.amazon.com/cognito-user-identity-pools/latest/APIReference/API_AdminDeleteUser.html
 const signUp = async (req, res) => {
     let email = req.body.email;
     let cognitoClient = new AWS.CognitoIdentityServiceProvider();
@@ -89,6 +91,7 @@ const signUp = async (req, res) => {
     }
 };
 
+// https://docs.aws.amazon.com/cognito-user-identity-pools/latest/APIReference/API_AdminRespondToAuthChallenge.html
 const confirmPassword = async (req, res) => {
     try {
       let username = req.body.email;
