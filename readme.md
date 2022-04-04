@@ -1,0 +1,1 @@
+- Access the .env file with creds here in this secret gist: https://gist.github.com/lakshyajit165/861b7f5a47a6f99af3caedec1538c10e
