@@ -7,11 +7,10 @@ const {
     forgotPassword,
     logOut,
     getProtectedResource,
-    confirmForgotPassword
+    confirmForgotPassword,
+    testRoute,
 } = require("../utilities/auth-utility");
-const {
-    validateToken
-} = require("../middlewares/auth-middleware");
+const { validateToken } = require("../middlewares/auth-middleware");
 
 router.post("/signin", signIn);
 router.post("/signup", signUp);
